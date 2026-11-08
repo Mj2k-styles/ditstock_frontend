@@ -25,7 +25,7 @@ function Stat({ label, value, tone }) {
 }
 
 export default function Dashboard() {
-  // Tant que /api/dashboard/stats n'existe pas, on affiche ce qu'on peut calculer depuis les produits
+  // Si /api/dashboard/stats est indisponible, on affiche au moins le nombre de produits
   const { data, loading, error } = useFetch(async () => {
     try {
       return await dashboard.stats()
@@ -41,16 +41,19 @@ export default function Dashboard() {
 
   const s = data ?? {}
   const inAlert = Number(s.alerts_count ?? 0)
-  const partial = !!s._partial
+  const partial = !!s._partial // route des statistiques indisponible
+  const hasMovements = s.movements_today != null || Array.isArray(s.movements_30d)
 
   return (
     <>
       <PageHeader title="Tableau de bord" />
 
       {partial && (
+        <Alert tone="warn">Les statistiques du tableau de bord ne sont pas disponibles sur le serveur.</Alert>
+      )}
+      {!partial && !hasMovements && (
         <Alert tone="warn">
-          Les indicateurs de stock (valeur, alertes, mouvements) seront disponibles avec les modules
-          « mouvements » et « alertes » du backend.
+          Les mouvements du jour et les graphiques seront disponibles avec le module « mouvements » du backend.
         </Alert>
       )}
 
@@ -67,10 +70,10 @@ export default function Dashboard() {
         <Stat label="Produits" value={formatNumber(s.total_products)} />
         <Stat label="Valeur totale du stock" value={partial ? '—' : formatMoney(s.total_stock_value)} />
         <Stat label="Produits en alerte" value={partial ? '—' : formatNumber(inAlert)} tone={inAlert ? 'text-warn' : ''} />
-        <Stat label="Mouvements du jour" value={partial ? '—' : formatNumber(s.movements_today)} />
+        <Stat label="Mouvements du jour" value={hasMovements ? formatNumber(s.movements_today) : '—'} />
       </div>
 
-      {!partial && (
+      {hasMovements && (
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <section className="rounded-lg border border-line bg-white p-4">
           <h2 className="mb-3 font-medium">Mouvements sur 30 jours</h2>

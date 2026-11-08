@@ -117,8 +117,16 @@ export const alerts = {
 }
 export const auditLogs = { list: listOf('/audit-logs') }
 
+// Le backend renvoie { total_products, stock_value, total_alerts } ; on le ramène aux noms
+// utilisés par la page. Les champs « mouvements » restent absents tant que ce module n'existe pas.
+export const normalizeStats = (d = {}) => ({
+  ...d,
+  total_stock_value: d.total_stock_value ?? d.stock_value,
+  alerts_count: d.alerts_count ?? d.total_alerts,
+})
+
 export const dashboard = {
-  stats: () => client.get('/dashboard/stats').then((r) => r.data),
+  stats: () => client.get('/dashboard/stats').then((r) => normalizeStats(r.data)),
 }
 
 // Télécharge un export (CSV, PDF) en conservant le jeton d'authentification

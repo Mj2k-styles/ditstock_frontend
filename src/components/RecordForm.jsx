@@ -29,6 +29,8 @@ export default function RecordForm({ title, fields, initial = {}, onSubmit, onCl
       if (f.omitIfEmpty && v === '') continue
       if (f.type === 'number') payload[f.name] = v === '' ? null : Number(v)
       else if (f.type === 'select') payload[f.name] = v === '' ? null : v
+      // Champ optionnel laissé vide : on envoie null (le backend refuse "" pour un e-mail, par ex.)
+      else if (v === '' && !(f.required || (f.requiredOnNew && isNew))) payload[f.name] = null
       else payload[f.name] = v
     }
     try {

@@ -5,7 +5,7 @@ import Pagination from '../components/Pagination'
 import { Alert, PageHeader } from '../components/ui'
 import { useFetch } from '../hooks/useFetch'
 import { PER_PAGE } from '../utils/constants'
-import { formatDate } from '../utils/format'
+import { NOT_AVAILABLE_MESSAGE, formatDate } from '../utils/format'
 
 export default function Audit() {
   const [page, setPage] = useState(1)
@@ -14,7 +14,7 @@ export default function Audit() {
   return (
     <>
       <PageHeader title="Journal d'audit" />
-      <Alert>{error}</Alert>
+      <Alert tone={error === NOT_AVAILABLE_MESSAGE ? 'warn' : 'danger'}>{error}</Alert>
       <DataTable
         loading={loading}
         rows={data?.items ?? []}

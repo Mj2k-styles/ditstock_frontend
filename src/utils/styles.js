@@ -3,7 +3,7 @@ export const inputClass =
 
 export const btn = {
   primary:
-    'rounded border border-brand bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-surface hover:text-brand ...',
+    'rounded border border-brand bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-surface hover:text-brand disabled:opacity-50',
   secondary:
     'rounded border border-line bg-white px-4 py-2 text-sm hover:bg-surface disabled:opacity-50',
   danger:

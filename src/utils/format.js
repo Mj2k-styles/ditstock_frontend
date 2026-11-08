@@ -25,12 +25,31 @@ export function isNotAvailable(err) {
 export const NOT_AVAILABLE_MESSAGE =
   "Cette fonctionnalité n'est pas encore disponible sur le serveur."
 
+export const UNREACHABLE_MESSAGE =
+  "Le serveur ne répond pas. Vérifiez que le backend est démarré (docker compose up, ou flask run)."
+export const SERVER_ERROR_MESSAGE =
+  'Erreur interne du serveur (500). Consultez les journaux du backend et vérifiez que la base de ' +
+  'données est à jour (flask db upgrade).'
+
+const looksLikeHtml = (s) => /^\s*<(!doctype|html)/i.test(s)
+
 // Message d'erreur lisible à partir d'une erreur Axios
 export function errorMessage(err, fallback = 'Une erreur est survenue. Réessayez.') {
   const d = err?.response?.data
+  const status = err?.response?.status
   if (!err?.response) return 'Impossible de joindre le serveur.'
   if (isNotAvailable(err)) return NOT_AVAILABLE_MESSAGE
-  if (typeof d === 'string') return d
+
+  // 502/503/504 : la passerelle (Nginx) n'atteint pas Flask
+  if ([502, 503, 504].includes(status)) return UNREACHABLE_MESSAGE
+  if (status >= 500) {
+    // Corps en texte brut (ou vide) : réponse du proxy (Vite en développement), pas de Flask.
+    // Flask répond en JSON ({ message }) ou, hors Flask-RESTX, avec une page HTML.
+    if (typeof d === 'string' && !looksLikeHtml(d)) return UNREACHABLE_MESSAGE
+    return SERVER_ERROR_MESSAGE
+  }
+
+  if (typeof d === 'string') return looksLikeHtml(d) || !d ? fallback : d
   if (d?.message) return d.message
   if (d?.error) return d.error
   if (d?.errors && typeof d.errors === 'object') {

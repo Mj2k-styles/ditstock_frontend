@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { Alert, Field } from '../components/ui'
+import { errorMessage } from '../utils/format'
 import { btn, inputClass } from '../utils/styles'
 
 export default function Login() {
@@ -31,7 +32,7 @@ export default function Login() {
             ? 'Ce compte est désactivé. Contactez un administrateur.'
             : status === 400
               ? 'Veuillez renseigner votre e-mail et votre mot de passe.'
-              : 'Impossible de joindre le serveur. Réessayez.',
+              : errorMessage(err),
       )
       setLoading(false)
     }

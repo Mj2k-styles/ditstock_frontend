@@ -7,7 +7,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useFetch } from '../hooks/useFetch'
 import { useLookups } from '../hooks/useLookups'
 import { MOVEMENT_TYPES, PER_PAGE, ROLES } from '../utils/constants'
-import { errorMessage, formatDate, formatNumber } from '../utils/format'
+import { NOT_AVAILABLE_MESSAGE, errorMessage, formatDate, formatNumber } from '../utils/format'
 import { btn, inputClass } from '../utils/styles'
 
 const SORTIE_MOTIFS = ['Vente', 'Consommation', 'Perte'].map((m) => ({ value: m, label: m }))
@@ -144,10 +144,23 @@ export default function Movements() {
 
   const typeOptions = Object.entries(MOVEMENT_TYPES).map(([value, label]) => ({ value, label }))
 
+  // Le backend n'expose pas encore /api/movements/ : inutile de proposer un formulaire qui échouerait
+  if (error === NOT_AVAILABLE_MESSAGE) {
+    return (
+      <>
+        <PageHeader title="Mouvements de stock" />
+        <Alert tone="warn">
+          Le module « mouvements » n&apos;est pas encore disponible sur le serveur. L&apos;enregistrement des
+          entrées, sorties, transferts et ajustements sera activé dès que l&apos;API existera.
+        </Alert>
+      </>
+    )
+  }
+
   return (
     <>
       <PageHeader title="Mouvements de stock" />
-      <MovementForm onSaved={() => (page === 1 ? reload() : setPage(1))} />
+      {!(loading && !data) && <MovementForm onSaved={() => (page === 1 ? reload() : setPage(1))} />}
 
       <h2 className="mb-3 font-medium">Historique</h2>
       <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">

@@ -70,16 +70,6 @@ export default function Products() {
     { name: 'category_id', label: 'Catégorie', type: 'select', options: lookups.categories },
     { name: 'unit_price', label: 'Prix unitaire (FCFA)', type: 'number', step: '0.01', required: true },
     { name: 'minimum_stock', label: 'Seuil minimal', type: 'number', step: '1', required: true },
-    // Hors ProductSchema : retiré du payload produit avant l'envoi, puis écrit via /warehouse-stocks/
-    {
-      name: 'initial_stock',
-      label: 'Stock initial',
-      type: 'quantities',
-      onlyNew: true,
-      options: lookups.warehouses,
-      emptyText: 'Aucun entrepôt : créez-en un dans « Entrepôts » pour pouvoir saisir un stock.',
-      help: "Quantité reçue dans chaque entrepôt. Laissez vide s'il n'y a pas encore de stock.",
-    },
   ]
 
   const categoryName = (id) => lookups.categories.find((c) => c.value === id)?.label ?? '—'
@@ -162,29 +152,9 @@ export default function Products() {
           fields={fields}
           initial={editing}
           onClose={() => setEditing(null)}
-          onSubmit={async ({ initial_stock = [], ...payload }) => {
-            if (editing.id) {
-              await products.update(editing.id, payload)
-              reload()
-              return
-            }
-            setActionError('')
-            const created = await products.create(payload)
-            // Le produit existe déjà : une erreur de stock ne doit pas bloquer (ni faire recréer le produit)
-            const failures = []
-            for (const line of initial_stock) {
-              try {
-                await warehouseStocks.set(line.warehouse_id, created.id, line.quantity)
-              } catch (err) {
-                const name = lookups.warehouses.find((w) => w.value === line.warehouse_id)?.label
-                failures.push(`${name ?? `entrepôt ${line.warehouse_id}`} : ${errorMessage(err)}`)
-              }
-            }
-            if (failures.length) {
-              setActionError(
-                `Produit « ${created.name} » créé, mais son stock initial n'a pas été enregistré (${failures.join(' ; ')}).`,
-              )
-            }
+          onSubmit={async (payload) => {
+            if (editing.id) await products.update(editing.id, payload)
+            else await products.create(payload)
             reload()
           }}
         />

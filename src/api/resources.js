@@ -71,12 +71,6 @@ export const suppliers = crud('/suppliers', { searchKeys: ['name'] })
 // { id, warehouse_id, product_id, quantity }), sans noms de produits ni filtre.
 export const warehouseStocks = {
   list: () => client.get('/warehouse-stocks/').then((r) => r.data),
-  // Fixe la quantité d'un produit dans un entrepôt (le backend remplace la valeur, entier >= 0 exigé).
-  // NB : le cahier des charges veut que le stock soit toujours le résultat d'un mouvement. Tant que
-  // /api/movements/ n'existe pas, c'est la seule route d'écriture ; à remplacer par une « entrée ».
-  set: (warehouse_id, product_id, quantity) =>
-    client.post('/warehouse-stocks/', { warehouse_id, product_id, quantity }).then((r) => r.data),
-
 }
 
 export const warehouses = {

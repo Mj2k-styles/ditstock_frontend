@@ -144,7 +144,7 @@ export default function Movements() {
 
   const typeOptions = Object.entries(MOVEMENT_TYPES).map(([value, label]) => ({ value, label }))
 
-  // Le backend n'expose pas encore /api/movements/ : inutile de proposer un formulaire qui échouerait
+  // Garde-fou : si /api/movements/ est absent (404), inutile de proposer un formulaire qui échouerait
   if (error === NOT_AVAILABLE_MESSAGE) {
     return (
       <>
@@ -179,8 +179,21 @@ export default function Movements() {
           { key: 'created_at', label: 'Date', render: (m) => formatDate(m.created_at) },
           { key: 'type', label: 'Type', render: (m) => <Badge tone={TYPE_TONE[m.type]}>{MOVEMENT_TYPES[m.type] ?? m.type}</Badge> },
           { key: 'product', label: 'Produit', render: (m) => m.product_name ?? m.product?.name ?? m.product_id },
-          { key: 'warehouse', label: 'Entrepôt', render: (m) => m.warehouse_name ?? m.warehouse?.name ?? m.warehouse_id },
-          { key: 'quantity', label: 'Quantité', render: (m) => formatNumber(m.quantity) },
+          {
+            key: 'warehouse',
+            label: 'Entrepôt',
+            render: (m) => {
+              const source = m.warehouse_name ?? m.warehouse?.name ?? m.warehouse_id
+              // Un transfert part d'un entrepôt source vers un entrepôt de destination
+              return m.type === 'TRANSFERT' ? `${source} → ${m.warehouse_dest_name ?? m.warehouse_dest_id}` : source
+            },
+          },
+          {
+            key: 'quantity',
+            label: 'Quantité',
+            // Pour un ajustement, la quantité est un écart : on affiche son signe
+            render: (m) => (m.type === 'AJUSTEMENT' && m.quantity > 0 ? `+${formatNumber(m.quantity)}` : formatNumber(m.quantity)),
+          },
           { key: 'reason', label: 'Motif / bon', render: (m) => m.reason || m.reference || '—' },
           { key: 'user', label: 'Utilisateur', render: (m) => m.user_name ?? m.user?.full_name ?? m.user_id },
         ]}

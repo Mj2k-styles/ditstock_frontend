@@ -64,12 +64,13 @@ export const products = crud('/products', {
 export const categories = crud('/categories', { searchKeys: ['name', 'description'] })
 export const users = crud('/users', { searchKeys: ['full_name', 'email'] })
 
-// --- Ressources prévues au cahier des charges, pas encore exposées par l'API ---
-// (le frontend gère proprement l'erreur 404 : voir errorMessage et isNotAvailable)
+// --- Autres ressources ---
+// (le frontend gère proprement une erreur 404 : voir errorMessage et isNotAvailable)
 export const suppliers = crud('/suppliers', { searchKeys: ['name'] })
 // Stock par entrepôt : le backend expose /api/warehouse-stocks/ (toutes les lignes
 // { id, warehouse_id, product_id, quantity }), sans noms de produits ni filtre.
 export const warehouseStocks = {
+  // Lecture seule : le stock ne s'écrit que par un mouvement (voir `movements.create`)
   list: () => client.get('/warehouse-stocks/').then((r) => r.data),
 }
 
@@ -105,7 +106,13 @@ const listOf = (path, { searchKeys = [], decorate = (x) => x } = {}) => async (p
 }
 
 export const movements = {
-  list: listOf('/movements'),
+  // Contrairement aux autres listes, page / per_page sont envoyés au serveur : /movements/ pagine
+  // lui-même (réponse { items, total, page, pages }) et filtre par type, entrepôt, produit et dates.
+  list: async (params = {}) => {
+    const server = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))
+    const { data } = await client.get('/movements/', { params: server })
+    return normalizePage(data, params.per_page)
+  },
   create: (payload) => client.post('/movements/', payload).then((r) => r.data),
 }
 
@@ -117,16 +124,53 @@ export const alerts = {
 }
 export const auditLogs = { list: listOf('/audit-logs') }
 
-// Le backend renvoie { total_products, stock_value, total_alerts } ; on le ramène aux noms
-// utilisés par la page. Les champs « mouvements » restent absents tant que ce module n'existe pas.
+// Le backend renvoie { total_products, stock_value, total_alerts, movements_today } ; on le ramène
+// aux noms utilisés par la page.
 export const normalizeStats = (d = {}) => ({
   ...d,
   total_stock_value: d.total_stock_value ?? d.stock_value,
   alerts_count: d.alerts_count ?? d.total_alerts,
 })
 
+const MOVEMENT_KINDS = ['ENTREE', 'SORTIE', 'TRANSFERT', 'AJUSTEMENT']
+
+// /dashboard/movements renvoie { movements: [{ date, type, total }] } : seuls les jours avec mouvement
+// y figurent. On en fait une série de 30 jours consécutifs (jusqu'à aujourd'hui, en UTC comme le
+// serveur), un total par type et un total du jour, pour une courbe continue.
+export function buildMovementSeries(data, days = 30, now = new Date()) {
+  const rows = data?.movements ?? []
+  const byDay = new Map()
+  for (const r of rows) {
+    const day = byDay.get(r.date) ?? {}
+    day[r.type] = (day[r.type] ?? 0) + Number(r.total)
+    byDay.set(r.date, day)
+  }
+  const series = []
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - i))
+      .toISOString()
+      .slice(0, 10)
+    const day = byDay.get(date) ?? {}
+    const point = { date }
+    let count = 0
+    for (const kind of MOVEMENT_KINDS) {
+      point[kind] = day[kind] ?? 0
+      count += point[kind]
+    }
+    series.push({ ...point, count })
+  }
+  return series
+}
+
+// /dashboard/top-exits renvoie { top_exits: [{ product_name, sku, total_exits }] } ; le graphique
+// attend { name, quantity }.
+export const normalizeTopExits = (data) =>
+  (data?.top_exits ?? []).map((t) => ({ name: t.product_name, quantity: t.total_exits }))
+
 export const dashboard = {
   stats: () => client.get('/dashboard/stats').then((r) => normalizeStats(r.data)),
+  movements: () => client.get('/dashboard/movements').then((r) => buildMovementSeries(r.data)),
+  topExits: () => client.get('/dashboard/top-exits').then((r) => normalizeTopExits(r.data)),
 }
 
 // Télécharge un export (CSV, PDF) en conservant le jeton d'authentification

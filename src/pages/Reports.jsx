@@ -4,10 +4,12 @@ import { Alert, PageHeader } from '../components/ui'
 import { errorMessage } from '../utils/format'
 import { btn } from '../utils/styles'
 
-// Exports disponibles côté backend (l'export des mouvements viendra avec le module mouvements)
+// Exports disponibles côté backend (réservés au gestionnaire et à l'admin)
 const EXPORTS = [
   { path: '/exports/stock/csv', file: 'etat-du-stock.csv', label: 'État du stock (CSV)' },
   { path: '/exports/stock/pdf', file: 'etat-du-stock.pdf', label: 'État du stock (PDF)' },
+  { path: '/exports/movements/csv', file: 'historique-mouvements.csv', label: 'Historique des mouvements (CSV)' },
+  { path: '/exports/movements/pdf', file: 'historique-mouvements.pdf', label: 'Historique des mouvements (PDF)' },
 ]
 
 export default function Reports() {

@@ -44,4 +44,30 @@ describe('RecordForm', () => {
     await userEvent.click(screen.getByRole('button', { name: /enregistrer/i }))
     expect(onSubmit).toHaveBeenCalledWith({ full_name: 'Awa' })
   })
+  it("type 'quantities' : envoie une ligne par option ayant une quantité > 0", async () => {
+    const onSubmit = vi.fn().mockResolvedValue()
+    const f = [
+      { name: 'name', label: 'Nom', required: true },
+      { name: 'stock', label: 'Stock initial', type: 'quantities', options: [{ value: 1, label: 'Dakar' }, { value: 2, label: 'Thiès' }, { value: 3, label: 'Saint-Louis' }] },
+    ]
+    render(<RecordForm title="Produit" fields={f} onSubmit={onSubmit} onClose={() => {}} />)
+    await userEvent.type(screen.getByLabelText('Nom'), 'Clou')
+    await userEvent.type(screen.getByLabelText('Dakar'), '12')
+    await userEvent.type(screen.getByLabelText('Saint-Louis'), '0')
+    await userEvent.click(screen.getByRole('button', { name: /enregistrer/i }))
+    expect(onSubmit).toHaveBeenCalledWith({ name: 'Clou', stock: [{ warehouse_id: 1, quantity: 12 }] })
+  })
+
+  it("type 'quantities' : affiche emptyText sans option et envoie une liste vide", async () => {
+    const onSubmit = vi.fn().mockResolvedValue()
+    const f = [
+      { name: 'name', label: 'Nom', required: true },
+      { name: 'stock', label: 'Stock initial', type: 'quantities', options: [], emptyText: 'Aucun entrepôt.' },
+    ]
+    render(<RecordForm title="Produit" fields={f} onSubmit={onSubmit} onClose={() => {}} />)
+    expect(screen.getByText('Aucun entrepôt.')).toBeInTheDocument()
+    await userEvent.type(screen.getByLabelText('Nom'), 'Clou')
+    await userEvent.click(screen.getByRole('button', { name: /enregistrer/i }))
+    expect(onSubmit).toHaveBeenCalledWith({ name: 'Clou', stock: [] })
+  })
 })

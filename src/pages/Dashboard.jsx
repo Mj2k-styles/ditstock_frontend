@@ -2,6 +2,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -13,7 +14,15 @@ import { Link } from 'react-router-dom'
 import { dashboard, products } from '../api/resources'
 import { useFetch } from '../hooks/useFetch'
 import { Alert, PageHeader, Spinner } from '../components/ui'
+import { MOVEMENT_TYPES } from '../utils/constants'
 import { formatMoney, formatNumber, isNotAvailable } from '../utils/format'
+
+// Une courbe par type de mouvement (couleurs alignées sur les badges de la page Mouvements)
+const LINE_COLORS = { ENTREE: '#0e6f63', SORTIE: '#d97706', TRANSFERT: '#2563eb', AJUSTEMENT: '#dc2626' }
+
+// 'AAAA-MM-JJ' (envoyé par l'API) -> 'JJ/MM' pour l'axe, 'JJ/MM/AAAA' pour l'infobulle
+const shortDate = (d) => (typeof d === 'string' ? `${d.slice(8, 10)}/${d.slice(5, 7)}` : d)
+const longDate = (d) => (typeof d === 'string' ? `${shortDate(d)}/${d.slice(0, 4)}` : d)
 
 function Stat({ label, value, tone }) {
   return (
@@ -27,12 +36,20 @@ function Stat({ label, value, tone }) {
 export default function Dashboard() {
   // Si /api/dashboard/stats est indisponible, on affiche au moins le nombre de produits
   const { data, loading, error } = useFetch(async () => {
+    let stats
     try {
-      return await dashboard.stats()
+      stats = await dashboard.stats()
     } catch (err) {
       if (!isNotAvailable(err)) throw err
       const list = await products.list({ per_page: 1000 })
       return { _partial: true, total_products: list.total }
+    }
+    // Les graphiques viennent de deux autres routes : leur échec ne doit pas masquer les chiffres
+    const [movementsRes, topRes] = await Promise.allSettled([dashboard.movements(), dashboard.topExits()])
+    return {
+      ...stats,
+      movements_30d: movementsRes.status === 'fulfilled' ? movementsRes.value : undefined,
+      top_products: topRes.status === 'fulfilled' ? topRes.value : undefined,
     }
   })
 
@@ -53,7 +70,7 @@ export default function Dashboard() {
       )}
       {!partial && !hasMovements && (
         <Alert tone="warn">
-          Les mouvements du jour et les graphiques seront disponibles avec le module « mouvements » du backend.
+          Le serveur ne fournit pas les mouvements du jour ni les graphiques (mettez le backend à jour).
         </Alert>
       )}
 
@@ -81,17 +98,20 @@ export default function Dashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={s.movements_30d ?? []}>
                 <CartesianGrid stroke="#dde2e5" strokeDasharray="3 3" />
-                <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                <XAxis dataKey="date" tick={{ fontSize: 12 }} tickFormatter={shortDate} interval="preserveStartEnd" minTickGap={24} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Line type="monotone" dataKey="count" name="Mouvements" stroke="#0e6f63" strokeWidth={2} dot={false} />
+                <Tooltip labelFormatter={longDate} />
+                <Legend />
+                {Object.keys(LINE_COLORS).map((kind) => (
+                  <Line key={kind} type="monotone" dataKey={kind} name={MOVEMENT_TYPES[kind]} stroke={LINE_COLORS[kind]} strokeWidth={2} dot={false} />
+                ))}
               </LineChart>
             </ResponsiveContainer>
           </div>
         </section>
 
         <section className="rounded-lg border border-line bg-white p-4">
-          <h2 className="mb-3 font-medium">Top 10 des produits sortis</h2>
+          <h2 className="mb-3 font-medium">Top 10 des produits sortis (30 jours)</h2>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={s.top_products ?? []} layout="vertical" margin={{ left: 20 }}>

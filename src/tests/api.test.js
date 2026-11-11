@@ -5,7 +5,16 @@ vi.mock('../api/client', () => ({
 }))
 
 import client from '../api/client'
-import { alerts, dashboard, products, users, warehouses } from '../api/resources'
+import {
+  alerts,
+  buildMovementSeries,
+  dashboard,
+  movements,
+  normalizeTopExits,
+  products,
+  users,
+  warehouses,
+} from '../api/resources'
 
 describe('API resources', () => {
   beforeEach(() => vi.clearAllMocks())
@@ -70,5 +79,42 @@ describe('API resources', () => {
     expect(s.alerts_count).toBe(2)
     expect(s.total_products).toBe(4)
     expect(s.movements_today).toBeUndefined()
+  })
+  it('envoie page / per_page et les filtres au serveur pour les mouvements', async () => {
+    client.get.mockResolvedValue({ data: { items: [{ id: 1 }], total: 31, page: 2, pages: 4, per_page: 10 } })
+    const res = await movements.list({ page: 2, per_page: 10, type: 'SORTIE', warehouse_id: '', date_from: '2026-11-01' })
+    expect(client.get).toHaveBeenCalledWith('/movements/', {
+      params: { page: 2, per_page: 10, type: 'SORTIE', date_from: '2026-11-01' },
+    })
+    expect(res).toEqual({ items: [{ id: 1 }], total: 31, page: 2, pages: 4 })
+  })
+
+  it('construit 30 jours consécutifs à partir de /dashboard/movements', () => {
+    const now = new Date('2026-11-11T15:00:00Z')
+    const series = buildMovementSeries(
+      {
+        movements: [
+          { date: '2026-11-11', type: 'ENTREE', total: 2 },
+          { date: '2026-11-11', type: 'SORTIE', total: 1 },
+          { date: '2026-11-01', type: 'TRANSFERT', total: 4 },
+        ],
+      },
+      30,
+      now,
+    )
+    expect(series).toHaveLength(30)
+    expect(series[0].date).toBe('2026-10-13')
+    expect(series[29]).toMatchObject({ date: '2026-11-11', ENTREE: 2, SORTIE: 1, TRANSFERT: 0, count: 3 })
+    expect(series.find((p) => p.date === '2026-11-01')).toMatchObject({ TRANSFERT: 4, count: 4 })
+    expect(series.find((p) => p.date === '2026-11-05').count).toBe(0)
+  })
+
+  it('adapte /dashboard/top-exits au graphique', async () => {
+    expect(normalizeTopExits({ top_exits: [{ product_id: 1, product_name: 'Clou', sku: 'C', total_exits: 7 }] })).toEqual([
+      { name: 'Clou', quantity: 7 },
+    ])
+    client.get.mockResolvedValue({ data: { top_exits: [] } })
+    expect(await dashboard.topExits()).toEqual([])
+    expect(client.get).toHaveBeenCalledWith('/dashboard/top-exits')
   })
 })

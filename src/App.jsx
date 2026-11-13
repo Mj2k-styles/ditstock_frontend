@@ -13,6 +13,9 @@ import Alerts from './pages/Alerts'
 import Reports from './pages/Reports'
 import Users from './pages/Users'
 import Audit from './pages/Audit'
+import Account from './pages/Account'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import { ROLES } from './utils/constants'
 
 const { ADMIN, GESTIONNAIRE } = ROLES
@@ -21,6 +24,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/mot-de-passe-oublie" element={<ForgotPassword />} />
+      <Route path="/reinitialiser-mot-de-passe" element={<ResetPassword />} />
 
       {/* Tout ce qui suit exige d'être connecté */}
       <Route element={<ProtectedRoute />}>
@@ -30,6 +35,7 @@ export default function App() {
           <Route path="entrepots" element={<Warehouses />} />
           <Route path="mouvements" element={<Movements />} />
           <Route path="alertes" element={<Alerts />} />
+          <Route path="mon-compte" element={<Account />} />
           <Route path="acces-refuse" element={<Forbidden />} />
 
           <Route element={<ProtectedRoute roles={[ADMIN, GESTIONNAIRE]} />}>

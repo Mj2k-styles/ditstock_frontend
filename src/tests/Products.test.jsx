@@ -36,7 +36,7 @@ async function openForm() {
   await userEvent.click(await screen.findByRole('button', { name: /ajouter un produit/i }))
   await userEvent.type(screen.getByLabelText(/référence/i), 'P-1')
   await userEvent.type(screen.getByLabelText('Nom'), 'Clou')
-  await userEvent.type(screen.getByLabelText(/prix unitaire/i), '10')
+  await userEvent.type(screen.getByLabelText(/prix d'achat/i), '10')
   await userEvent.type(screen.getByLabelText(/seuil minimal/i), '5')
 }
 

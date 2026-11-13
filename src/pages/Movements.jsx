@@ -12,7 +12,7 @@ import { btn, inputClass } from '../utils/styles'
 
 const SORTIE_MOTIFS = ['Vente', 'Consommation', 'Perte'].map((m) => ({ value: m, label: m }))
 const TYPE_TONE = { ENTREE: 'ok', SORTIE: 'warn', TRANSFERT: 'neutral', AJUSTEMENT: 'danger' }
-const EMPTY = { product_id: '', warehouse_id: '', warehouse_dest_id: '', quantity: '', reason: '', reference: '' }
+const EMPTY = { product_id: '', warehouse_id: '', warehouse_dest_id: '', quantity: '', reason: '', reference: '', supplier_id: '' }
 
 function MovementForm({ onSaved }) {
   const { hasRole } = useAuth()
@@ -45,6 +45,8 @@ function MovementForm({ onSaved }) {
       reference: values.reference || null,
     }
     if (type === 'TRANSFERT') payload.warehouse_dest_id = values.warehouse_dest_id
+    // Fournisseur d'une entrée : alimente l'historique des approvisionnements
+    if (type === 'ENTREE' && values.supplier_id !== '') payload.supplier_id = values.supplier_id
     try {
       await movements.create(payload)
       setSuccess(`${MOVEMENT_TYPES[type]} enregistrée.`)
@@ -109,6 +111,11 @@ function MovementForm({ onSaved }) {
         {type === 'AJUSTEMENT' && (
           <Field label="Motif de l'ajustement" htmlFor="m-motif">
             <input id="m-motif" required value={values.reason} onChange={(e) => set('reason', e.target.value)} className={inputClass} />
+          </Field>
+        )}
+        {type === 'ENTREE' && (
+          <Field label="Fournisseur" htmlFor="m-supplier">
+            <Select id="m-supplier" value={values.supplier_id} onChange={(v) => set('supplier_id', v)} options={lookups.suppliers} placeholder="— Aucun —" />
           </Field>
         )}
         {type === 'ENTREE' && (
@@ -194,7 +201,7 @@ export default function Movements() {
             // Pour un ajustement, la quantité est un écart : on affiche son signe
             render: (m) => (m.type === 'AJUSTEMENT' && m.quantity > 0 ? `+${formatNumber(m.quantity)}` : formatNumber(m.quantity)),
           },
-          { key: 'reason', label: 'Motif / bon', render: (m) => m.reason || m.reference || '—' },
+          { key: 'reason', label: 'Motif / bon', render: (m) => m.reason || [m.reference, m.supplier_name].filter(Boolean).join(' · ') || '—' },
           { key: 'user', label: 'Utilisateur', render: (m) => m.user_name ?? m.user?.full_name ?? m.user_id },
         ]}
       />

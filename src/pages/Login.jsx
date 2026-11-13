@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { Alert, Field } from '../components/ui'
 import { errorMessage } from '../utils/format'
@@ -68,6 +68,11 @@ export default function Login() {
         <button type="submit" disabled={loading} className={`${btn.primary} w-full`}>
           {loading ? 'Connexion…' : 'Se connecter'}
         </button>
+        <p className="text-center text-sm">
+          <Link to="/mot-de-passe-oublie" className={btn.link}>
+            Mot de passe oublié ?
+          </Link>
+        </p>
       </form>
     </div>
   )

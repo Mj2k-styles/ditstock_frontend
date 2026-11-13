@@ -7,11 +7,14 @@ vi.mock('../api/client', () => ({
 import client from '../api/client'
 import {
   alerts,
+  auditLogs,
   buildMovementSeries,
+  categories,
   dashboard,
   movements,
   normalizeTopExits,
   products,
+  suppliers,
   users,
   warehouses,
 } from '../api/resources'
@@ -21,18 +24,51 @@ describe('API resources', () => {
 
   it('appelle les collections avec le "/" final attendu par Flask', async () => {
     client.get.mockResolvedValue({ data: [] })
-    await products.list({ page: 1, per_page: 10 })
-    expect(client.get).toHaveBeenCalledWith('/products/', { params: {} })
+    await categories.list({ page: 1, per_page: 10 })
+    expect(client.get).toHaveBeenCalledWith('/categories/', { params: {} })
   })
 
-  it("n'envoie pas page / per_page / q au serveur et pagine côté client", async () => {
+  it("pagine côté client quand l'API renvoie un tableau simple", async () => {
     client.get.mockResolvedValue({
-      data: Array.from({ length: 12 }, (_, i) => ({ id: i + 1, name: `P${i}`, sku: `S${i}` })),
+      data: Array.from({ length: 12 }, (_, i) => ({ id: i + 1, name: `C${i}` })),
     })
-    const res = await products.list({ page: 2, per_page: 10, q: '', category_id: '' })
-    expect(client.get).toHaveBeenCalledWith('/products/', { params: {} })
+    const res = await categories.list({ page: 2, per_page: 10, q: '' })
+    expect(client.get).toHaveBeenCalledWith('/categories/', { params: {} })
     expect(res.items).toHaveLength(2)
     expect(res.total).toBe(12)
+  })
+
+  it('envoie recherche, filtres et pagination des produits au serveur', async () => {
+    client.get.mockResolvedValue({ data: { items: [{ id: 1 }], total: 11, page: 2, pages: 2, per_page: 10 } })
+    const res = await products.list({ page: 2, per_page: 10, q: 'clou', category_id: '', stock_state: 'alerte' })
+    expect(client.get).toHaveBeenCalledWith('/products/', {
+      params: { page: 2, per_page: 10, q: 'clou', stock_state: 'alerte' },
+    })
+    expect(res).toEqual({ items: [{ id: 1 }], total: 11, page: 2, pages: 2 })
+  })
+
+  it('demande toujours une page (réponse paginée) pour les produits', async () => {
+    client.get.mockResolvedValue({ data: { items: [], total: 0, page: 1, pages: 0 } })
+    await products.list({ per_page: 200 })
+    expect(client.get).toHaveBeenCalledWith('/products/', { params: { page: 1, per_page: 200 } })
+  })
+
+  it('envoie le fichier CSV en multipart pour l’import', async () => {
+    client.post.mockResolvedValue({ data: { created: 2, skipped: [], errors: [] } })
+    const file = new File(['sku;nom;prix_achat'], 'produits.csv', { type: 'text/csv' })
+    const res = await products.importCsv(file)
+    const [url, body] = client.post.mock.calls[0]
+    expect(url).toBe('/products/import')
+    expect(body.get('file')).toBe(file)
+    expect(res.created).toBe(2)
+  })
+
+  it("lit l'historique d'un fournisseur et le journal d'audit page par page", async () => {
+    client.get.mockResolvedValue({ data: { items: [], total: 0, page: 1, pages: 0 } })
+    await suppliers.history(5, { page: 2, per_page: 10 })
+    expect(client.get).toHaveBeenCalledWith('/suppliers/5/movements', { params: { page: 2, per_page: 10 } })
+    await auditLogs.list({ page: 3, per_page: 10 })
+    expect(client.get).toHaveBeenCalledWith('/audit-logs/', { params: { page: 3, per_page: 10 } })
   })
 
   it('utilise /<id> sans slash final pour modifier et archiver', async () => {

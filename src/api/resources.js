@@ -56,17 +56,39 @@ const crud = (path, { searchKeys = ['name'], filterKeys = [] } = {}) => ({
   remove: (id) => client.delete(`${path}/${id}`).then((r) => r.data),
 })
 
+// Liste paginée par le serveur : page / per_page et filtres sont envoyés tels quels
+// (réponse { items, total, page, pages }). Les valeurs vides sont retirées.
+const serverPaged = (path) => async (params = {}) => {
+  const server = Object.fromEntries(
+    Object.entries({ page: 1, ...params }).filter(([, v]) => v !== '' && v != null),
+  )
+  const { data } = await client.get(path, { params: server })
+  return normalizePage(data, params.per_page)
+}
+
 // --- Ressources disponibles côté backend ---
-export const products = crud('/products', {
-  searchKeys: ['name', 'sku'],
-  filterKeys: ['category_id'],
-})
+// Produits : recherche (q), filtres (catégorie, fournisseur, entrepôt, état du stock) et
+// pagination faits par le serveur ; chaque produit porte son stock total (stock_total).
+export const products = {
+  ...crud('/products'),
+  list: serverPaged('/products/'),
+  // Import CSV (multipart) : renvoie { created, skipped, errors }
+  importCsv: (file) => {
+    const form = new FormData()
+    form.append('file', file)
+    return client.post('/products/import', form).then((r) => r.data)
+  },
+}
 export const categories = crud('/categories', { searchKeys: ['name', 'description'] })
 export const users = crud('/users', { searchKeys: ['full_name', 'email'] })
 
 // --- Autres ressources ---
 // (le frontend gère proprement une erreur 404 : voir errorMessage et isNotAvailable)
-export const suppliers = crud('/suppliers', { searchKeys: ['name'] })
+export const suppliers = {
+  ...crud('/suppliers', { searchKeys: ['name', 'contact'] }),
+  // Historique des approvisionnements (entrées liées au fournisseur)
+  history: (id, params = {}) => serverPaged(`/suppliers/${id}/movements`)(params),
+}
 // Stock par entrepôt : le backend expose /api/warehouse-stocks/ (toutes les lignes
 // { id, warehouse_id, product_id, quantity }), sans noms de produits ni filtre.
 export const warehouseStocks = {
@@ -122,7 +144,7 @@ export const alerts = {
     decorate: (a) => ({ ...a, id: a.id ?? `${a.product_id}-${a.warehouse_id}` }),
   }),
 }
-export const auditLogs = { list: listOf('/audit-logs') }
+export const auditLogs = { list: serverPaged('/audit-logs/') }
 
 // Le backend renvoie { total_products, stock_value, total_alerts, movements_today } ; on le ramène
 // aux noms utilisés par la page.

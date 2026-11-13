@@ -26,6 +26,8 @@ export default defineConfig(({ mode }) => {
       environment: 'jsdom',
       globals: true,
       setupFiles: './src/tests/setup.js',
+      // Les tests de bout en bout (e2e/) sont lancés par Playwright, pas par Vitest
+      include: ['src/**/*.test.{js,jsx}'],
       coverage: {
         provider: 'v8',
         reporter: ['text', 'lcov'],

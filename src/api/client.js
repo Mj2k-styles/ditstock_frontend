@@ -36,7 +36,8 @@ client.interceptors.response.use(
   (response) => response,
   async (error) => {
     const original = error.config
-    const isAuthCall = original?.url?.includes('/auth/')
+    // Appels publics d'authentification : pas de tentative de rafraîchissement du jeton
+    const isAuthCall = /\/auth\/(login|refresh|forgot-password|reset-password)/.test(original?.url ?? '')
 
     if (
       error.response?.status === 401 &&

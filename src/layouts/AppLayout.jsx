@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { alerts } from '../api/resources'
 import { ROLES, ROLE_LABELS } from '../utils/constants'
@@ -93,9 +93,9 @@ export default function AppLayout() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex items-center justify-end gap-4 border-b border-line bg-white px-6 py-3 text-sm">
-          <span className="text-muted">
+          <Link to="/mon-compte" className="text-muted hover:text-ink hover:underline" title="Mon compte">
             {user.full_name} · {ROLE_LABELS[user.role] ?? user.role}
-          </span>
+          </Link>
           <button onClick={logout} className="rounded border border-line px-3 py-1 hover:bg-surface">
             Déconnexion
           </button>

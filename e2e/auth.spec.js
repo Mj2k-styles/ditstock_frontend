@@ -14,7 +14,8 @@ test('le magasinier ne voit ni les utilisateurs ni le journal', async ({ page })
   await expect(nav.getByRole('link', { name: 'Produits' })).toBeVisible()
   await expect(nav.getByRole('link', { name: 'Utilisateurs' })).toHaveCount(0)
   await page.goto('/utilisateurs')
-  await expect(page.getByText(/accès refusé/i).first()).toBeVisible()
+  await expect(page).toHaveURL(/acces-refuse/)
+  await expect(page.getByRole('heading', { name: 'Page inaccessible' })).toBeVisible()
 })
 
 test('identifiants incorrects refusés', async ({ page }) => {

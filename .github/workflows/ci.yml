@@ -147,7 +147,7 @@ jobs:
   deploiement:
     name: Déclencher le déploiement
     needs: image
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOYMENT_REPO != '' && vars.DOCKERHUB_USERNAME != ''
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.DEPLOYMENT_REPO != '' && vars.DOCKERHUB_USERNAME != ''
     runs-on: ubuntu-latest
     steps:
       - name: Envoyer l'événement au dépôt de déploiement

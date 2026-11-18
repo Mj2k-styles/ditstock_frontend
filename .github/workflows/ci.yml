@@ -1,0 +1,162 @@
+# CI du frontend DitStock (GitHub Actions)
+#   1. checkout   2. dépendances   3. lint + tests unitaires + build Vite
+#   4. build de l'image Docker + test de démarrage + scan Trivy   5. push sur Docker Hub avec un tag
+#   6. déclenchement du dépôt de déploiement (deployment-cd)
+#
+# Configuration (Settings → Secrets and variables → Actions) :
+#   variable DOCKERHUB_USERNAME   compte Docker Hub (l'image est <compte>/ditstock-frontend)
+#   secret   DOCKERHUB_TOKEN      jeton d'accès Docker Hub (Read & Write)
+#   variable DEPLOYMENT_REPO      dépôt de déploiement, ex. Mj2k-styles/ditstock_deployment
+#   secret   DEPLOYMENT_TOKEN     jeton GitHub autorisé à déclencher ce dépôt (Actions : write)
+name: CI frontend
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ${{ vars.DOCKERHUB_USERNAME || 'ditstock' }}/ditstock-frontend
+
+jobs:
+  tests:
+    name: Lint, tests unitaires et build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Installer les dépendances
+        run: npm ci
+      - name: Lint (ESLint)
+        run: npm run lint
+      - name: Tests unitaires et couverture (Vitest)
+        run: npm run test:coverage
+      - name: Build de production (Vite)
+        run: npm run build
+      - name: Publier le rapport de couverture
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: couverture-frontend
+          path: coverage/
+          if-no-files-found: ignore
+
+  secrets:
+    name: Recherche de secrets (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Gitleaks sur les fichiers du dépôt
+        run: |
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.21.2 \
+            dir /repo --config /repo/.gitleaks.toml --redact --verbose --exit-code 1
+
+  image:
+    name: Image Docker (build, scan, push Docker Hub)
+    needs: [tests, secrets]
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Tag immuable de l'image : sha-<7 premiers caractères du commit>
+      - name: Calculer le tag
+        id: tag
+        run: echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Tags et labels de l'image
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=${{ steps.tag.outputs.tag }}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build de l'image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Le conteneur démarre et sert l'application (backend simulé par un nom d'hôte local)
+      - name: Test de démarrage de l'image
+        run: |
+          docker run -d --name smoke --add-host backend:127.0.0.1 -p 8080:80 "$IMAGE:${{ steps.tag.outputs.tag }}"
+          for i in $(seq 1 15); do
+            if curl -fsS http://localhost:8080/ | grep -q '<div id="root">'; then echo "Frontend servi"; break; fi
+            [ "$i" = 15 ] && { docker logs smoke; exit 1; }
+            sleep 2
+          done
+          docker rm -f smoke
+
+      - name: Scan Trivy (vulnérabilités critiques corrigeables)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}:${{ steps.tag.outputs.tag }}
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Connexion à Docker Hub
+        if: github.event_name != 'pull_request' && vars.DOCKERHUB_USERNAME != ''
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Push sur Docker Hub
+        if: github.event_name != 'pull_request' && vars.DOCKERHUB_USERNAME != ''
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+
+      - name: Résumé
+        run: |
+          {
+            echo "### Image frontend"
+            echo "\`${IMAGE}:${{ steps.tag.outputs.tag }}\`"
+            if [ "${{ github.event_name }}" = pull_request ] || [ -z "${{ vars.DOCKERHUB_USERNAME }}" ]; then
+              echo "Image construite et scannée, non publiée (pull request ou Docker Hub non configuré)."
+            else
+              echo "Publiée sur https://hub.docker.com/r/${IMAGE}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploiement:
+    name: Déclencher le déploiement
+    needs: image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOYMENT_REPO != '' && vars.DOCKERHUB_USERNAME != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Envoyer l'événement au dépôt de déploiement
+        env:
+          GH_TOKEN: ${{ secrets.DEPLOYMENT_TOKEN }}
+        run: |
+          gh api "repos/${{ vars.DEPLOYMENT_REPO }}/dispatches" \
+            -f event_type=image-publiee \
+            -F "client_payload[composant]=frontend" \
+            -F "client_payload[tag]=${{ needs.image.outputs.tag }}" \
+            -F "client_payload[commit]=${{ github.sha }}"
+          echo "Déploiement de frontend:${{ needs.image.outputs.tag }} demandé à ${{ vars.DEPLOYMENT_REPO }}" >> "$GITHUB_STEP_SUMMARY"

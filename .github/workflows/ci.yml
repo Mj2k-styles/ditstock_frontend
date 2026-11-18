@@ -7,7 +7,7 @@
 #   variable DOCKERHUB_USERNAME   compte Docker Hub (l'image est <compte>/ditstock-frontend)
 #   secret   DOCKERHUB_TOKEN      jeton d'accès Docker Hub (Read & Write)
 #   variable DEPLOYMENT_REPO      dépôt de déploiement, ex. Mj2k-styles/ditstock_deployment
-#   secret   DEPLOYMENT_TOKEN     jeton GitHub autorisé à déclencher ce dépôt (Actions : write)
+#   secret   DEPLOYMENT_TOKEN     jeton GitHub fine-grained, Contents : Read and write sur ce dépôt
 name: CI frontend
 
 on:

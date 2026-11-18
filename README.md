@@ -90,7 +90,7 @@ Configuration (Settings → Secrets and variables → Actions) :
 | Variable | `DOCKERHUB_USERNAME` | compte Docker Hub |
 | Secret | `DOCKERHUB_TOKEN` | jeton d'accès Docker Hub (Read & Write) |
 | Variable | `DEPLOYMENT_REPO` | `Mj2k-styles/<dépôt de déploiement>` |
-| Secret | `DEPLOYMENT_TOKEN` | jeton GitHub (fine-grained) avec *Actions : write* sur le dépôt de déploiement |
+| Secret | `DEPLOYMENT_TOKEN` | jeton GitHub (fine-grained) avec *Contents : Read and write* sur le dépôt de déploiement (exigé par `repository_dispatch`) |
 
 Tant que Docker Hub n'est pas configuré, l'image est construite, testée et scannée mais pas publiée.
 

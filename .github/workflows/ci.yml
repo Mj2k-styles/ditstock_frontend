@@ -87,7 +87,7 @@ jobs:
       - uses: docker/setup-buildx-action@v3
 
       - name: Build de l'image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           load: true
@@ -124,7 +124,7 @@ jobs:
 
       - name: Push sur Docker Hub
         if: github.event_name != 'pull_request' && vars.DOCKERHUB_USERNAME != ''
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
